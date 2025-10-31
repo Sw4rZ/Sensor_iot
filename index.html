@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Arduino Sensor Live Log</title>
+    <style>
+        body { font-family: monospace; background: #111; color: #0f0; padding: 20px; }
+        pre { white-space: pre-wrap; word-wrap: break-word; }
+    </style>
+</head>
+<body>
+    <h1>Arduino Sensor Live Log</h1>
+    <pre id="log">Loading...</pre>
+
+    <script>
+        async function fetchLog() {
+            try {
+                const response = await fetch('sensor_log.txt');
+                const text = await response.text();
+                document.getElementById('log').textContent = text;
+            } catch (err) {
+                document.getElementById('log').textContent = "Error loading log: " + err;
+            }
+        }
+
+        fetchLog();
+        setInterval(fetchLog, 5000); // Refresh every 5 seconds
+    </script>
+</body>
+</html>
