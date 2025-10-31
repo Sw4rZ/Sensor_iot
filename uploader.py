@@ -4,11 +4,12 @@ import base64
 from datetime import datetime
 
 # ----------- GitHub CONFIG -----------
-GITHUB_TOKEN = "YOUR_GITHUB_TOKEN"
-REPO_OWNER = "YOUR_USERNAME"
-REPO_NAME = "sensor-cloud"
-FILE_PATH = "sensor_log.txt"   # inside your repo
+GITHUB_TOKEN = "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"
+REPO_OWNER   = "Sw4rZ"                     
+REPO_NAME    = "sensor-cloud"              
+FILE_PATH    = "sensor_log.txt"           
 # ------------------------------------
+
 
 # ----------- Arduino CONFIG ----------
 SERIAL_PORT = "COM4"   # change this
