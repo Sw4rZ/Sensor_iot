@@ -10,10 +10,10 @@ from dotenv import load_dotenv
 load_dotenv()
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 REPO_OWNER = os.getenv("REPO_OWNER")
-REPO_NAME  = os.getenv("REPO_NAME")
-FILE_PATH  = os.getenv("FILE_PATH")
+REPO_NAME = os.getenv("REPO_NAME")
+FILE_PATH = os.getenv("FILE_PATH")
 SERIAL_PORT = os.getenv("SERIAL_PORT")
-BAUD_RATE   = int(os.getenv("BAUD_RATE", "9600"))
+BAUD_RATE = int(os.getenv("BAUD_RATE", "9600"))
 BATCH_LINES = int(os.getenv("BATCH_LINES", "1"))
 UPLOAD_INTERVAL = int(os.getenv("UPLOAD_INTERVAL", "3"))
 
@@ -22,7 +22,7 @@ HEADERS = {"Authorization": f"Bearer {GITHUB_TOKEN}", "Accept": "application/vnd
 
 # Validate token
 def validate_token():
-    r = requests.get("https://api.github.com/user", headers=HEADERS)
+    r = requests.get(f"https://api.github.com/user", headers=HEADERS)
     if r.status_code != 200:
         print("❌ Token invalid or unauthorized:", r.status_code, r.text)
         exit(1)
