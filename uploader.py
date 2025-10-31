@@ -1,60 +1,99 @@
-import serial
-import requests
+import os
+import time
 import base64
+import requests
+import serial
 from datetime import datetime
 
-# ----------- GitHub CONFIG -----------
-GITHUB_TOKEN = "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"
-REPO_OWNER   = "Sw4rZ"                     
-REPO_NAME    = "sensor-cloud"              
-FILE_PATH    = "sensor_log.txt"           
-# ------------------------------------
+# -----------------------------
+# CONFIGURATION
+# -----------------------------
+GITHUB_TOKEN = "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"   # <-- paste your token
+REPO_OWNER   = "Sw4rZ"
+REPO_NAME    = "Sensor_iot"
+FILE_PATH    = "sensor_log.txt"
 
+SERIAL_PORT  = "COM7"   # ✅ Updated port
+BAUD_RATE    = 9600
+BATCH_LINES  = 5
+UPLOAD_INTERVAL = 10
 
-# ----------- Arduino CONFIG ----------
-SERIAL_PORT = "COM4"   # change this
-BAUD_RATE = 9600
-# -------------------------------------
+API_URL_CONTENT = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
+HEADERS = {
+    "Authorization": f"Bearer {GITHUB_TOKEN}",
+    "Accept": "application/vnd.github.v3+json"
+}
 
-def get_file_sha():
-    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
-    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
-    r = requests.get(url, headers=headers)
-    return r.json()["sha"]
+# -----------------------------
+# FUNCTIONS
+# -----------------------------
+def get_file_info():
+    r = requests.get(API_URL_CONTENT, headers=HEADERS)
+    if r.status_code == 200:
+        return r.json()
+    else:
+        raise RuntimeError(f"Failed to get file info: {r.status_code} {r.text}")
 
-def upload_line(line):
-    sha = get_file_sha()
-    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{FILE_PATH}"
-
-    new_line = f"{datetime.now()} - {line}\n"
-
-    # Get old content
-    headers = {"Authorization": f"Bearer {GITHUB_TOKEN}"}
-    r = requests.get(url, headers=headers)
-    old_content = base64.b64decode(r.json()["content"]).decode("utf-8")
-
-    updated_content = old_content + new_line
-    encoded = base64.b64encode(updated_content.encode()).decode()
-
-    data = {
-        "message": "update log",
-        "content": encoded,
+def upload_content(new_content, sha, message="Update log"):
+    payload = {
+        "message": message,
+        "content": base64.b64encode(new_content.encode()).decode(),
         "sha": sha
     }
+    r = requests.put(API_URL_CONTENT, headers=HEADERS, json=payload)
+    if r.status_code in (200, 201):
+        return r.json()
+    else:
+        raise RuntimeError(f"Upload failed: {r.status_code} {r.text}")
 
-    requests.put(url, json=data, headers=headers)
-    print("Uploaded:", new_line)
+def append_lines_to_github(lines):
+    info = get_file_info()
+    sha = info["sha"]
+    old = base64.b64decode(info["content"]).decode("utf-8")
+    updated = old + "".join(lines)
+    upload_content(updated, sha, message=f"Added {len(lines)} sensor entries")
 
-# ------------- READ SERIAL ------------
-ser = serial.Serial(SERIAL_PORT, BAUD_RATE)
-print("Started reading…")
+def format_line(raw):
+    ts = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    return f"{ts} - {raw}\n"
 
-while True:
+# -----------------------------
+# MAIN PROCESS
+# -----------------------------
+def main():
+    buffer = []
+    last_upload = time.time()
+
     try:
-        line = ser.readline().decode("utf-8", errors="ignore").strip()
-        if line:
-            print("Serial:", line)
-            upload_line(line)
-    except KeyboardInterrupt:
-        print("Stopped.")
-        break
+        ser = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
+        print(f"✅ Listening on {SERIAL_PORT} @ {BAUD_RATE}")
+    except Exception as e:
+        print("❌ Serial error:", e)
+        return
+
+    while True:
+        try:
+            raw = ser.readline().decode(errors="ignore").strip()
+            if raw:
+                print("📡 Serial:", raw)
+                buffer.append(format_line(raw))
+
+            now = time.time()
+            if (len(buffer) >= BATCH_LINES) or (now - last_upload >= UPLOAD_INTERVAL and buffer):
+                append_lines_to_github(buffer)
+                print(f"✅ Uploaded {len(buffer)} lines to GitHub")
+                buffer = []
+                last_upload = now
+
+        except KeyboardInterrupt:
+            print("\n⛔ Exiting manually.")
+            if buffer:
+                append_lines_to_github(buffer)
+                print("✅ Final lines uploaded.")
+            break
+        except Exception as e:
+            print("⚠️ Error:", e)
+            time.sleep(1)
+
+if __name__ == "__main__":
+    main()
